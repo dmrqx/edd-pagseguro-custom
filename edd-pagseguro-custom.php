@@ -718,9 +718,12 @@ function edd_purchase_tool_shortcode_custom( $atts, $content = null ) {
                 $payment_key = edd_get_payment_key( $payment['id'] );
 
                 if ( $payment['status'] == 'pending' ) :
+
                     return $pending_payment_button;
 
-                else :
+                endif;
+
+                if ( $payment['status'] == 'publish' ) :
 
                     $user_email  = edd_get_payment_user_email( get_current_user_id() );
                     $download_link = esc_url( edd_get_download_file_url( $payment_key, $user_email, 1, $atts['id'] ) );
