@@ -691,8 +691,12 @@ function edd_has_user_purchased_custom( $user_id, $downloads ) {
  */
 function edd_purchase_tool_shortcode_custom( $atts, $content = null ) {
 
-    $modal_trigger_button = '<button type="button" class="o-buyButton__btn" data-toggle="modal" data-target="#purchase-modal">
+    $buy_button = '<button type="button" class="o-buyButton__btn" data-toggle="modal" data-target="#purchase-modal">
     <span class="o-buyButton">Comprar ' . edd_price( get_the_ID(), false ) . '</span>
+    </button>';
+
+    $free_button = '<button type="button" class="o-buyButton__btn" data-loggedin="'. is_user_logged_in() .'" id="proceed-to-download">
+    <span class="o-buyButton">Download Gratuito</span>
     </button>';
 
     $download_button = '<a href="{{download_link}}" role="button" class="o-buyButton__btn"><span class="o-buyButton download"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="22" viewBox="0 0 18 22"><g fill="none" fill-rule="evenodd" stroke="#fff" stroke-width="2"><path d="M17 18v3H1v-3M9 13.93V.944M15 10l-6 5-6-5"/></g></svg>Baixar</span></a>';
@@ -733,7 +737,17 @@ function edd_purchase_tool_shortcode_custom( $atts, $content = null ) {
 
             else:
 
-                return $modal_trigger_button;
+                $download = new EDD_Download( $post_id );
+
+                if ( floatval( $download->price ) > 0 ):
+
+                    return $buy_button;
+
+                else:
+
+                    return $free_button;
+
+                endif;
 
             endif;
 
@@ -741,3 +755,7 @@ function edd_purchase_tool_shortcode_custom( $atts, $content = null ) {
 
 }
 add_shortcode( 'purchase_tool', 'edd_purchase_tool_shortcode_custom' );
+
+
+// remove the standard button that shows after the download's content
+remove_action( 'edd_after_download_content', 'edd_append_purchase_link' );
