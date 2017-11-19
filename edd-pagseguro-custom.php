@@ -612,7 +612,7 @@ function edd_pagseguro_custom_slug_rewrite( $args, $post_type ) {
 
     if ( $post_type === 'download' ) {
         $args['label'] = 'Ferramentas';
-        $args['rewrite']['slug'] = 'ferramentas';
+        $args['rewrite']['slug'] = 'tools';
     }
 
     return $args;
