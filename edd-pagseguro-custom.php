@@ -629,19 +629,20 @@ function edd_has_user_purchased_custom( $user_id, $downloads ) {
 
     if ( empty( $user_id ) ) return false;
 
-    $users_purchases = edd_get_users_purchases( $user_id );
+    $user_purchases = edd_get_users_purchases( $user_id, -1, false, 'any' );
 
-    $return = false;
+    $return = array();
 
     if ( ! is_array( $downloads ) ) {
         $downloads = array( $downloads );
     }
 
-    if ( $users_purchases ) {
+    if ( $user_purchases ) {
 
-        foreach ( $users_purchases as $purchase ) {
+        foreach ( $user_purchases as $purchase ) {
 
             $payment         = new EDD_Payment( $purchase->ID );
+
             $purchased_files = $payment->cart_details;
 
             if ( is_array( $purchased_files ) ) {
@@ -656,7 +657,8 @@ function edd_has_user_purchased_custom( $user_id, $downloads ) {
 
                             if ( isset( $download['item_number']['options']['price_id'] ) && $variable_price_id == $download['item_number']['options']['price_id'] ) {
 
-                                $return = $purchase->ID;
+                                $return['status'] = $purchase->post_status;
+                                $return['id']     = $purchase->ID;
                                 break 2; // Get out to prevent this value being overwritten if the customer has purchased item twice
 
                             } else {
@@ -667,7 +669,8 @@ function edd_has_user_purchased_custom( $user_id, $downloads ) {
 
                         } else {
 
-                            $return = $purchase->ID;
+                            $return['status'] = $purchase->post_status;
+                            $return['id']     = $purchase->ID;
                             break 2;  // Get out to prevent this value being overwritten if the customer has purchased item twice
 
                         }
@@ -692,26 +695,38 @@ function edd_purchase_tool_shortcode_custom( $atts, $content = null ) {
     <span class="o-buyButton">Comprar ' . edd_price( get_the_ID(), false ) . '</span>
     </button>';
 
+    $download_button = '<a href="{{download_link}}" role="button" class="o-buyButton__btn"><span class="o-buyButton download"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="22" viewBox="0 0 18 22"><g fill="none" fill-rule="evenodd" stroke="#fff" stroke-width="2"><path d="M17 18v3H1v-3M9 13.93V.944M15 10l-6 5-6-5"/></g></svg>Baixar</span></a>';
+
+    $pending_payment_button = '<button type="button" disabled class="o-buyButton__btn"><span class="o-pendingButton">Processando o pagamento<br><span class="o-pendingButton__subtitle">O download estará disponível em breve</span></span></button>';
+
         global $post;
 
         $post_id = is_object( $post ) ? $post->ID : 0;
 
         $atts = shortcode_atts( array(
-            'id' 	        => $post_id,
+            'id'    => $post_id,
         ),
         $atts, 'purchase_tool' );
         
 
         if( ! empty( $atts['id'] ) ) {
 
-            $payment_id = edd_has_user_purchased_custom( get_current_user_id(), $atts['id'] );
+            $payment = edd_has_user_purchased_custom( get_current_user_id(), $atts['id'] );
 
-            if ( $payment_id ):
+            if ( $payment ):
 
-                $payment_key = edd_get_payment_key( $payment_id );
-                $user_email  = edd_get_payment_user_email( get_current_user_id() );
+                $payment_key = edd_get_payment_key( $payment['id'] );
 
-                return '<a href="' . esc_url( edd_get_download_file_url( $payment_key, $user_email, 1, $atts['id'] ) ) . '">Baixar</a>';
+                if ( $payment['status'] == 'pending' ) :
+                    return $pending_payment_button;
+
+                else :
+
+                    $user_email  = edd_get_payment_user_email( get_current_user_id() );
+                    $download_link = esc_url( edd_get_download_file_url( $payment_key, $user_email, 1, $atts['id'] ) );
+
+                    return str_replace( '{{download_link}}', $download_link, $download_button);
+                endif;
 
             else:
 
@@ -719,11 +734,7 @@ function edd_purchase_tool_shortcode_custom( $atts, $content = null ) {
 
             endif;
 
-        } else { return 'ohmyballs'; }
+        } else { return 'error'; }
 
 }
 add_shortcode( 'purchase_tool', 'edd_purchase_tool_shortcode_custom' );
-
-
-
-
