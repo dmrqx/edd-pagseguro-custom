@@ -11,7 +11,7 @@ jQuery(document).ready(function( $ ) {
      * cada ferramenta apenas para separar as informações
      * referentes a action do wp_ajax e ID do produto.
      */
-    var buyButtonSelector    = '#proceed-to-payment',
+    var buyButtonSelector    = '#proceed-to-payment, #proceed-to-download',
         purchaseFormSelector = '.edd-pagseguro-purchase-form',
         $buyButton    = $(buyButtonSelector),
         $purchaseForm = $(purchaseFormSelector);
@@ -52,6 +52,11 @@ jQuery(document).ready(function( $ ) {
 
                     if ( redirect_uri.length > 0 )
                         window.location.href = redirect_uri;
+
+                } else if ( response.hasOwnProperty('download_uri') ) {
+
+                    window.location.href = response.download_uri;
+                    // location.reload();
 
                 } else if ( response.hasOwnProperty('error') ) {
 

@@ -227,7 +227,14 @@ function edd_pagseguro_custom_init() {
 
             // Monta o array
             $purchase_data = edd_build_straight_to_gateway_data( $download_id );
-            $purchase_data['gateway'] = 'pagseguro';
+
+            // Direciona para o gateway correto (download pago ou gratuito)
+            $download = new EDD_Download( $download_id );
+            if ( floatval( $download->price ) > 0 ) {
+                $purchase_data['gateway'] = 'pagseguro';
+            } else {
+                $purchase_data['gateway'] = 'gratuito';
+            }
 
             edd_set_purchase_session( $purchase_data );
 
@@ -237,6 +244,72 @@ function edd_pagseguro_custom_init() {
         }
         add_action ( 'wp_ajax_' . 'edd_set_pagseguro_purchase',
         'edd_set_pagseguro_purchase' );
+
+
+        /**
+         * Processa um download gratuito
+         * @param array $purchase_data Dados da compra
+         * @return void
+         */
+        function edd_process_gratuito_purchase( $purchase_data ) {
+
+            // Disponibiliza as opções configuradas no wp-admin
+            global $edd_options;
+
+            if( ! wp_verify_nonce( $purchase_data['gateway_nonce'], 'edd-gateway' ) ) {
+                wp_die( __( 'Nonce verification has failed', 'easy-digital-downloads' ), __( 'Error', 'easy-digital-downloads' ), array( 'response' => 403 ) );
+            }
+
+            // Coleta dados para o pagamento
+            $payment_data = array(
+                'price'         => $purchase_data['price'],
+                'date'          => $purchase_data['date'],
+                'user_email'    => $purchase_data['user_email'],
+                'purchase_key'  => $purchase_data['purchase_key'],
+                'currency'      => edd_get_currency(),
+                'downloads'     => $purchase_data['downloads'],
+                'user_info'     => $purchase_data['user_info'],
+                'cart_details'  => $purchase_data['cart_details'],
+                'gateway'       => 'gratuito',
+                'status'        => 'complete'
+            );
+
+            // Registra o pagamento com status pendente
+            $payment = edd_insert_payment( $payment_data );
+
+            // Verifica o pagamento
+            if ( ! $payment ) {
+
+                // Registra o erro
+                edd_record_gateway_error( __( 'Payment Error', 'easy-digital-downloads' ), sprintf( __( 'Payment creation failed before sending buyer to PagSeguro. Payment data: %s', 'easy-digital-downloads' ), json_encode( $payment_data ) ), $payment );
+
+                // Problemas? Informe o usuário (ajax)
+                $response = array(
+                    "error" => true,
+                    "message" => "Ocorreu uma falha durante a criação do pagamento.",
+                );
+
+                echo json_encode( $response );
+                exit;
+
+            } else {
+
+                $download_id = $purchase_data['downloads'][0]['id'];
+                $payment_key = edd_get_payment_key( $payment );
+                $user_email  = edd_get_payment_user_email( get_current_user_id() );
+                $download_link = edd_get_download_file_url( $payment_key, $user_email, 1, $download_id );
+
+                $response = array(
+                    "download_uri" => $download_link
+                );
+
+                // Redireciona para o PagSeguro no front-end
+                echo json_encode( $response );
+                exit;
+
+            }
+        }
+        add_action('edd_gateway_gratuito', 'edd_process_gratuito_purchase');
 
 
         /**
