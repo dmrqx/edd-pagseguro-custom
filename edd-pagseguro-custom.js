@@ -6,7 +6,7 @@ jQuery(document).ready(function( $ ) {
      * O botão que dispara a transação com o PagSeguro
      * está dentro do modal que é exibido para o usuário
      * apenas se o mesmo estiver logado.
-     * 
+     *
      * O formulário está presente nas páginas internas de
      * cada ferramenta apenas para separar as informações
      * referentes a action do wp_ajax e ID do produto.
@@ -79,4 +79,3 @@ jQuery(document).ready(function( $ ) {
     });
 
 });
-
