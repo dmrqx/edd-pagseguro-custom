@@ -99,7 +99,7 @@ function edd_pagseguro_custom_deactivate() {
 
     require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
     deactivate_plugins( plugin_basename( __FILE__ ) );
-
+    
     // Esconde a notificação de "Plugin ativado"
     if ( isset( $_GET['activate'] ) ) unset( $_GET['activate'] );
 
@@ -116,7 +116,7 @@ function edd_pagseguro_custom_show_notice__error() {
     $class = 'notice notice-error';
     $message = __( '<strong>Ops!</strong> Você precisa instalar e ativar o plugin <a href="https://easydigitaldownloads.com/" target="_blank">Easy Digital Downloads</a> para habilitar a opção de pagamento com o PagSeguro.', 'edd-pagseguro-custom' );
 
-    printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), $message );
+    printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), $message ); 
 }
 
 
@@ -136,7 +136,7 @@ function edd_pagseguro_custom_init() {
             wp_enqueue_script('edd_pagseguro_custom', plugin_dir_url( __FILE__ ) . 'edd-pagseguro-custom.js', array('jquery'), null, true);
             # Localize admin-ajax url in main.js
             wp_localize_script( 'edd_pagseguro_custom', 'edd_custom_scripts', array( 'ajaxurl' => admin_url('admin-ajax.php')) );
-
+        
         }
         add_action( 'wp_enqueue_scripts', 'edd_pagseguro_custom_scripts' );
 
@@ -299,8 +299,6 @@ function edd_pagseguro_custom_init() {
                 $user_email  = edd_get_payment_user_email( get_current_user_id() );
                 $download_link = edd_get_download_file_url( $payment_key, $user_email, 1, $download_id );
 
-                edd_new_user_download($download_id);
-
                 $response = array(
                     "download_uri" => $download_link
                 );
@@ -371,6 +369,10 @@ function edd_pagseguro_custom_init() {
                     'confirmacao' => 'pendente'
                 ), trailingslashit( get_site_url() ) . get_post_type_object( 'download' )->rewrite['slug'] );
 
+                //DEBUG SENDER NAME
+                //edd_debug_log( 'Sender Name:  ' . $purchase_data['user_info']['first_name'] . ' ' . $purchase_data['user_info']['last_name'] );
+                $full_name = preg_replace('/\s+/', ' ', $purchase_data['user_info']['first_name'] . ' ' . $purchase_data['user_info']['last_name']);
+
                 // Configura os argumentos da transação
                 $pagseguro_args = array(
                     'email' => edd_get_option( 'pagseguro_email', false ),
@@ -379,8 +381,9 @@ function edd_pagseguro_custom_init() {
                     'shippingAddressRequired' => 'false',
                     'redirectURL' => $return_url,
                     'reference' => $payment . '__' . $purchase_data['purchase_key'],
-                    'senderName' => $purchase_data['user_info']['first_name'] . ' ' . $purchase_data['user_info']['last_name'],
-                    'senderEmail' => $purchase_data['user_email'],
+                    //'senderName' => trim($purchase_data['user_info']['first_name'] . ' ' . $purchase_data['user_info']['last_name']),
+                    'senderName' => $full_name,
+                    'senderEmail' => $purchase_data['user_email']
                 );
 
                 // Inclui os itens desejados na transação
@@ -398,8 +401,6 @@ function edd_pagseguro_custom_init() {
                         $pagseguro_args['itemDescription' . $i ] = stripslashes_deep( html_entity_decode( edd_get_cart_item_name( $item ), ENT_COMPAT, 'UTF-8' ) );
                         $pagseguro_args['itemQuantity' . $i ]  = $item['quantity'];
                         $pagseguro_args['itemAmount' . $i ]    = number_format($item_amount,2);
-
-                        edd_new_user_download($item['id']);
 
                         $i++;
 
@@ -431,7 +432,7 @@ function edd_pagseguro_custom_init() {
             $purchase_id = explode('__', $reference)[0];
 
             $headers = array( "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" );
-
+            
             $post = wp_remote_post( $url, array(
                 'method' => 'POST',
                 'timeout' => 60,
@@ -649,10 +650,10 @@ function edd_pagseguro_custom_init() {
             // Sandbox PagSeguro
             $sandbox = '';
             if ( edd_is_test_mode() ) {
-                $sandbox = 'sandbox.';
-            }
 
-            if ( edd_is_test_mode() ) {
+                $sandbox = 'sandbox.';
+
+            } else {
 
                 switch ( $type ) {
                     case "transaction":
@@ -772,21 +773,9 @@ function edd_purchase_tool_shortcode_custom( $atts, $content = null ) {
     <span class="o-buyButton">Comprar ' . edd_price( get_the_ID(), false ) . '</span>
     </button>';
 
-    if ( is_user_logged_in() ) :
-
-        $free_button = '<button type="button" class="o-buyButton__btn" id="proceed-to-download">
-        <span class="o-buyButton">Download Gratuito</span>
-        </button>';
-
-    else :
-
-        $free_button = '<button type="button" class="o-buyButton__btn" data-toggle="modal" data-target="#purchase-modal">
-        <span class="o-buyButton">Download Gratuito</span>
-        </button>';
-
-    endif;
-
-
+    $free_button = '<button type="button" class="o-buyButton__btn" data-loggedin="'. is_user_logged_in() .'" id="proceed-to-download">
+    <span class="o-buyButton">Download Gratuito</span>
+    </button>';
 
     $download_button = '<a href="{{download_link}}" role="button" class="o-buyButton__btn"><span class="o-buyButton download"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="22" viewBox="0 0 18 22"><g fill="none" fill-rule="evenodd" stroke="#fff" stroke-width="2"><path d="M17 18v3H1v-3M9 13.93V.944M15 10l-6 5-6-5"/></g></svg>Baixar</span></a>';
 
@@ -800,7 +789,7 @@ function edd_purchase_tool_shortcode_custom( $atts, $content = null ) {
             'id'    => $post_id,
         ),
         $atts, 'purchase_tool' );
-
+        
 
         if( ! empty( $atts['id'] ) ) {
 
